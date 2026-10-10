@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<index version="1" name="Reach the Knob" commit="890574674ee5ccc95ef0a28a08e541ed9c177d6d">
+  <category name="Items">
+    <reapack name="RtK_Bounce-items-to-new-track.lua" type="script" desc="Bounce items to new track">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 Bounce items to new track\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 This script renders all selected media items across multiple tracks into a single combined file on a new track below the lowest involved track.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Key Features\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Flexible signal flow:} Options to toggle track FX and take FX on/off.\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Pre-fader rendering:} "Ignore track Vol/Pan" bypasses track volume, pan, mute, and solo states.\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Smart mono:} Allows generating a true 1-channel file.\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Safety First:} The "Delete source tracks" function is a separate undo step. Press undo once to restore tracks, press again to remove the bounce.\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 \bullet \tx360\tab {\b Memory:} The script remembers last used settings (checkbox states).\sa180\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.0" author="Reach the Knob" time="2026-10-10T18:26:31Z">
+        <changelog><![CDATA[+ Initial release]]></changelog>
+        <source main="main">https://github.com/AlexGurev/RtK-reascripts/raw/4cee9a328d1685252f735e68410bf021f03c65ee/Items/RtK_Bounce-items-to-new-track.lua</source>
+      </version>
+    </reapack>
+    <reapack name="RtK_DAWproject.lua" type="script" desc="DAWproject for REAPER">
+      <metadata>
+        <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 Enables REAPER to import and export projects in the DAWproject format.\par}
+}
+]]></description>
+      </metadata>
+      <version name="1.0" author="Reach the Knob" time="2026-10-10T19:12:22Z">
+        <source main="main">https://github.com/AlexGurev/RtK-reascripts/raw/890574674ee5ccc95ef0a28a08e541ed9c177d6d/Items/RtK_DAWproject.lua</source>
+      </version>
+    </reapack>
+  </category>
+  <metadata>
+    <description><![CDATA[{\rtf1\ansi\deff0{\fonttbl{\f0 \fswiss Helvetica;}{\f1 \fmodern Courier;}}
+{\colortbl;\red255\green0\blue0;\red0\green0\blue255;}
+\widowctrl\hyphauto
+
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel0 \b \fs36 Reach the Knob \u8212- REAPER Scripts\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 A collection of Lua scripts and tools for {\b REAPER}, created by Alex Gurev of {\b Reach the Knob}. Scripts can be installed individually or via {\field{\*\fldinst{HYPERLINK "https://reapack.com"}}{\fldrslt{\ul
+ReaPack
+}}}
+.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Installation\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Via ReaPack\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 1.\tx360\tab Open REAPER \u8594 ? Extensions \u8594 ? ReaPack \u8594 ? Import repository.\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 2.\tx360\tab Paste the repository URL: https://raw.githubusercontent.com/AlexGurev/RtK-reascripts/refs/heads/master/index.xml\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 3.\tx360\tab Refresh packages and install the scripts you want.\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel2 \b \fs28 Manual Installation\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 1.\tx360\tab Download the {\f1 .lua} files from this repository.\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 2.\tx360\tab Place them in your REAPER scripts folder.\par}
+{\pard \ql \f0 \sa0 \li360 \fi-360 3.\tx360\tab Refresh REAPER actions list.\sa180\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 Contributing\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 If you want to contribute or suggest improvements, feel free to open an issue or pull request.\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 \outlinelevel1 \b \fs32 License\par}
+{\pard \ql \f0 \sa180 \li0 \fi0 Creative Commons BY-NC-ND 4.0 (more details on the {\field{\*\fldinst{HYPERLINK "https://github.com/AlexGurev/hius-reascripts/blob/master/LICENSE"}}{\fldrslt{\ul
+LICENSE
+}}}
+ page).\par}
+}
+]]></description>
+  </metadata>
+</index>
