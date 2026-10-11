@@ -1,5 +1,5 @@
 -- @description Bounce items to new track
--- @version 1.0
+-- @version 1.1
 -- @author Reach the Knob
 -- @about
 --   # Bounce items to new track
@@ -15,7 +15,7 @@
 --   * **Troubleshooting:** Saves detailed operation logs in the relevant project folder.
 --
 -- @changelog
---   + Initial release
+--   + Added automatic interface scaling based on DPI settings
 
 --------------------------------------------------------------------------------
 -- PART 1: CORE LOGIC
@@ -866,7 +866,7 @@ local function drawAboutDialog()
     gfx.x, gfx.y = uiX(youtubeX), uiY(linkY); gfx.drawstr(youtube)
     gfx.x, gfx.y = uiX(donationX), uiY(linkY); gfx.drawstr(donation)
     setColor(165, 165, 165); uiFont(3, "Arial", 15)
-    local version = "Version 1.0"
+    local version = "Version 1.1"
     gfx.x, gfx.y = uiX(x + (panelW - gfx.measurestr(version) / uiScale) / 2), uiY(y + 183); gfx.drawstr(version)
     return {
         panel = {x, y, panelW, panelH}, close = {closeX, closeY, closeSize, closeSize},
@@ -897,8 +897,25 @@ local function initLogo()
     end
 end
 
+local function getDisplayScaleFactor()
+    local scale = math.max(1, tonumber(gfx.ext_retina) or 1)
+    if reaper.ThemeLayout_GetLayout then
+        local ok, raw = reaper.ThemeLayout_GetLayout("global", -3)
+        local dpi = ok and tonumber(raw) or nil
+        if dpi and dpi >= 256 then scale = math.max(scale, dpi / 256) end
+    end
+    return scale
+end
+
 function InitGUI()
+    gfx.ext_retina = 1
     gfx.init("Bounce items to new track", ctx.w, ctx.h)
+    local requestedScale = getDisplayScaleFactor()
+    local reportedScale = math.min(gfx.w / ctx.w, gfx.h / ctx.h)
+    if requestedScale > reportedScale + 0.01 then
+        gfx.init("", math.floor(ctx.w * requestedScale + 0.5), math.floor(ctx.h * requestedScale + 0.5))
+    end
+    lastWindowW, lastWindowH = gfx.w, gfx.h
     gfx.setfont(1, "Arial", 15)
     initLogo()
 end

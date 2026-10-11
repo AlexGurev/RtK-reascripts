@@ -1,5 +1,5 @@
 -- @description DAWproject for REAPER
--- @version 1.0
+-- @version 1.1
 -- @author Reach the Knob
 -- @about 
 --   # DAWproject for REAPER
@@ -16,7 +16,8 @@
 --   The data available after import depends on how each DAW implements the DAWproject format.
 --
 -- @changelog
---   + Initial release
+--   + Added automatic interface scaling based on DPI settings
+--   + Improved automation export for Cubase
 
 local proj = 0
 local function msg(s) reaper.ShowMessageBox(s, "DAWproject for REAPER", 0) end
@@ -140,9 +141,10 @@ local function beatsAt(t)
   local b = reaper.TimeMap2_timeToQN(proj, t)
   return b or 0
 end
-local function exportEnvelopes(track, label, parameterIDs, fxParameters, warnings)
+local function exportEnvelopes(track, label, parameterIDs, fxParameters, warnings, timeUnit)
   local xml = {}
   local mappedFxEnvelopes = {}
+  timeUnit = timeUnit or "beats"
   local function pointsFor(env, kind, targetID, targetName)
     local count = reaper.CountEnvelopePoints(env)
     if not count or count < 1 or not targetID then return false end
@@ -150,6 +152,7 @@ local function exportEnvelopes(track, label, parameterIDs, fxParameters, warning
     for i = 0, count - 1 do
       local ok, t, value, shape = reaper.GetEnvelopePoint(env, i)
       if ok then
+        local pointTime = timeUnit == "seconds" and t or beatsAt(t)
         local v = value
         if kind == "volume" and reaper.ScaleFromEnvelopeMode then
           v = reaper.ScaleFromEnvelopeMode(reaper.GetEnvelopeScalingMode(env), value)
@@ -158,13 +161,14 @@ local function exportEnvelopes(track, label, parameterIDs, fxParameters, warning
         local tag = kind == "mute" and "BoolPoint" or "RealPoint"
         local val = kind == "mute" and tostring(value >= 0.5) or fmt(v)
         local interp = (shape == 1) and ' interpolation="hold"' or ' interpolation="linear"'
-        points[#points + 1] = '<' .. tag .. ' time="' .. fmt(beatsAt(t)) .. '" value="' .. val .. '"' .. (tag == "RealPoint" and interp or '') .. '/>'
+        points[#points + 1] = '<' .. tag .. ' time="' .. fmt(pointTime) .. '" value="' .. val .. '"' .. (tag == "RealPoint" and interp or '') .. '/>'
       end
     end
     if #points > 0 then
       local unit = kind == "volume" and ' unit="linear"' or ((kind == "pan" or kind == "fx") and ' unit="normalized"' or "")
-      local name = kind == "fx" and targetName and (' name="' .. esc(targetName) .. '"') or ""
-      xml[#xml + 1] = '<Points id="' .. newId() .. '" timeUnit="beats"' .. unit .. name .. '><Target parameter="' .. targetID .. '"/>' .. table.concat(points) .. '</Points>'
+      local pointName = targetName or ({volume = "Volume", pan = "Pan", mute = "Mute"})[kind]
+      local name = pointName and (' name="' .. esc(pointName) .. '"') or ""
+      xml[#xml + 1] = '<Points id="' .. newId() .. '"' .. unit .. name .. '><Target parameter="' .. targetID .. '"/>' .. table.concat(points) .. '</Points>'
       log("Export automation: " .. label .. " -> " .. kind .. " (" .. #points .. " points)")
       return true
     end
@@ -715,7 +719,8 @@ local function run(outputPath)
       warnings[#warnings + 1] = name .. ": hardware outputs cannot be represented in DAWproject (they depend on the local audio device configuration)"
     end
     local volumeID, panID, muteID = newId(), newId(), newId()
-    local trackAutomation = exportEnvelopes(tr, name, {volume = volumeID, pan = panID, mute = muteID}, fxParameters, warnings)
+    local automationTimeUnit = trackHasMediaTime and "seconds" or "beats"
+    local trackAutomation = exportEnvelopes(tr, name, {volume = volumeID, pan = panID, mute = muteID}, fxParameters, warnings, automationTimeUnit)
     local folderDepth = reaper.GetMediaTrackInfo_Value(tr, "I_FOLDERDEPTH") or 0
     local parentFolder = folderParentByTrack[tr]
     local channelDestination = parentFolder and channelIds[parentFolder] or masterChannel
@@ -963,7 +968,7 @@ local function run(outputPath)
       local mediaTrackHead = '<Track id="' .. mediaTrackId .. '" name="' .. esc(mediaTrackName) .. '" contentType="' .. mediaContentType .. '" loaded="true"' .. (color and ' color="' .. color .. '"' or '')
       local mediaTrackXML = trackVideoOnly and (mediaTrackHead .. '/>') or (mediaTrackHead .. '><Channel id="' .. mediaChannelId .. '" destination="' .. channelId .. '" role="regular" audioChannels="2" solo="false"><Devices></Devices><Mute id="' .. newId() .. '" name="Mute" value="false"/><Pan id="' .. newId() .. '" name="Pan" min="0" max="1" unit="normalized" value="0.5"/><Sends></Sends><Volume id="' .. newId() .. '" name="Volume" min="0" max="2" unit="linear" value="1"/></Channel></Track>')
       tracks[#tracks + 1] = {id = mediaTrackId, depth = 0, xml = mediaTrackXML}
-      laneXML[#laneXML + 1] = '<Lanes track="' .. trackId .. '" id="' .. laneId .. '"><Clips id="' .. clipsId .. '"></Clips>' .. trackAutomation .. '</Lanes>'
+      laneXML[#laneXML + 1] = '<Lanes track="' .. trackId .. '" id="' .. laneId .. '"' .. (trackHasMediaTime and ' timeUnit="seconds"' or ' timeUnit="beats"') .. '><Clips id="' .. clipsId .. '"></Clips>' .. trackAutomation .. '</Lanes>'
       if fixedLaneMode then
         appendFixedLaneXML(mediaTrackId)
       else
@@ -1002,16 +1007,15 @@ local function run(outputPath)
     for mi = 0, tempoMarkerCount - 1 do
       local rv, timepos, _, _, markerBpm, markerNum, markerDen, linear = reaper.GetTempoTimeSigMarker(proj, mi)
       if rv then
-        local beat = beatsAt(timepos)
-        tempoPoints[#tempoPoints + 1] = '<RealPoint time="' .. fmt(beat) .. '" value="' .. fmt(markerBpm) .. '" interpolation="' .. (linear and 'linear' or 'hold') .. '"/>'
+        tempoPoints[#tempoPoints + 1] = '<RealPoint time="' .. fmt(timepos) .. '" value="' .. fmt(markerBpm) .. '" interpolation="' .. (linear and 'linear' or 'hold') .. '"/>'
         if markerNum and markerNum > 0 and markerDen and markerDen > 0 then
-          signaturePoints[#signaturePoints + 1] = '<TimeSignaturePoint time="' .. fmt(beat) .. '" numerator="' .. tostring(markerNum) .. '" denominator="' .. tostring(markerDen) .. '"/>'
+          signaturePoints[#signaturePoints + 1] = '<TimeSignaturePoint time="' .. fmt(timepos) .. '" numerator="' .. tostring(markerNum) .. '" denominator="' .. tostring(markerDen) .. '"/>'
         end
       end
     end
-    tempoAutomation = '<TempoAutomation id="' .. newId() .. '" timeUnit="beats" unit="bpm"><Target parameter="' .. tempoId .. '"/>' .. table.concat(tempoPoints) .. '</TempoAutomation>'
-    if #signaturePoints > 0 then signatureAutomation = '<TimeSignatureAutomation id="' .. newId() .. '" timeUnit="beats"><Target parameter="' .. signatureId .. '"/>' .. table.concat(signaturePoints) .. '</TimeSignatureAutomation>' end
-    log("Export tempo map: " .. #tempoPoints .. " tempo points; " .. #signaturePoints .. " time-signature points")
+    tempoAutomation = '<TempoAutomation id="' .. newId() .. '" timeUnit="seconds" unit="bpm"><Target parameter="' .. tempoId .. '"/>' .. table.concat(tempoPoints) .. '</TempoAutomation>'
+    if #signaturePoints > 0 then signatureAutomation = '<TimeSignatureAutomation id="' .. newId() .. '" timeUnit="seconds"><Target parameter="' .. signatureId .. '"/>' .. table.concat(signaturePoints) .. '</TimeSignatureAutomation>' end
+    log("Export tempo map in seconds: " .. #tempoPoints .. " tempo points; " .. #signaturePoints .. " time-signature points")
   end
   local masterDevices = {}
   local masterFX = reaper.GetMasterTrack(proj)
@@ -1026,7 +1030,7 @@ local function run(outputPath)
   local masterMute = (reaper.GetMediaTrackInfo_Value(masterFX, "B_MUTE") or 0) ~= 0
   local masterSolo = (reaper.GetMediaTrackInfo_Value(masterFX, "I_SOLO") or 0) ~= 0
   local masterVolumeID, masterPanID, masterMuteID = newId(), newId(), newId()
-  local masterAutomation = exportEnvelopes(masterFX, "Master", {volume = masterVolumeID, pan = masterPanID, mute = masterMuteID}, masterFxParameters, warnings)
+  local masterAutomation = exportEnvelopes(masterFX, "Master", {volume = masterVolumeID, pan = masterPanID, mute = masterMuteID}, masterFxParameters, warnings, "beats")
   local markerXML, markerCount = {}, reaper.CountProjectMarkers(proj)
   local regionClipXML = {}
   for mi = 0, (markerCount or 0) - 1 do
@@ -2034,6 +2038,11 @@ local function startImport(archivePath, closeWaitNotice)
     local function applyAutomationLane(tr, trackId, lane)
       local envs = {}
       for _, points in ipairs(xmlAll(lane,"Points")) do
+        local pointTimeUnit = (points.attr and points.attr.timeUnit) or (lane.attr and lane.attr.timeUnit) or "beats"
+        local function pointTimeToSeconds(point)
+          local position = attrNumber(point, "time", 0)
+          return pointTimeUnit == "seconds" and position or reaper.TimeMap2_QNToTime(proj, position)
+        end
         local target = xmlFind(points,"Target")
         local parameterId = target and target.attr.parameter
         if #(points.children or {}) > 1 then
@@ -2044,8 +2053,8 @@ local function startImport(archivePath, closeWaitNotice)
           if env then
             for _, point in ipairs(points.children or {}) do
               if point.tag ~= "Target" then
-                local beat, value = attrNumber(point,"time",0), attrNumber(point,"value",0)
-                local atTime = reaper.TimeMap2_QNToTime(proj,beat)
+                local value = attrNumber(point,"value",0)
+                local atTime = pointTimeToSeconds(point)
                 if kind == "Pan" then value = value * 2 - 1 end
                 if kind == "Mute" then value = (point.attr.value == "true" or value >= 0.5) and 1 or 0 end
                 if kind == "Volume" and reaper.ScaleToEnvelopeMode then value = reaper.ScaleToEnvelopeMode(reaper.GetEnvelopeScalingMode(env), value) end
@@ -2059,7 +2068,7 @@ local function startImport(archivePath, closeWaitNotice)
             if fxEnv then
               for _, point in ipairs(points.children or {}) do
                 if point.tag ~= "Target" then
-                  reaper.InsertEnvelopePoint(fxEnv, reaper.TimeMap2_QNToTime(proj,attrNumber(point,"time",0)), attrNumber(point,"value",0), point.attr.interpolation == "hold" and 1 or 0, 0, false, true)
+                  reaper.InsertEnvelopePoint(fxEnv, pointTimeToSeconds(point), attrNumber(point,"value",0), point.attr.interpolation == "hold" and 1 or 0, 0, false, true)
                 end
               end
               reaper.Envelope_SortPoints(fxEnv)
@@ -2108,31 +2117,57 @@ local function startExport(outputPath, closeWaitNotice)
     msg("Export complete\nTracks packaged: " .. tostring(packagedTracks) .. "\nEvents packaged: " .. tostring(packagedEvents or 0))
   end
 end
+local function displayScaleFactor()
+  local scale = math.max(1, tonumber(gfx.ext_retina) or 1)
+  if reaper.ThemeLayout_GetLayout then
+    local ok, raw = reaper.ThemeLayout_GetLayout("global", -3)
+    local dpi = ok and tonumber(raw) or nil
+    if dpi and dpi >= 256 then scale = math.max(scale, dpi / 256) end
+  end
+  return scale
+end
+local function gfxIsMac()
+  local osName = (reaper.GetOS() or ""):upper()
+  return osName:find("OSX", 1, true) ~= nil or osName:find("MAC", 1, true) ~= nil
+end
+local function initHiDPIWaitWindow(width, height)
+  gfx.ext_retina = 1
+  gfx.init("DAWproject for REAPER", width, height, 0)
+  local requestedScale = displayScaleFactor()
+  if not gfxIsMac() and requestedScale > 1.01 then
+    gfx.quit()
+    gfx.ext_retina = 1
+    gfx.init("DAWproject for REAPER", math.floor(width * requestedScale + 0.5), math.floor(height * requestedScale + 0.5), 0)
+  end
+  local drawScale = math.min(gfx.w / width, gfx.h / height)
+  drawScale = math.max(1, drawScale)
+  return drawScale, gfx.w, gfx.h
+end
 local function showExportWait(outputPath)
   local width, height = 480, 142
-  gfx.init("DAWproject for REAPER", width, height, 0)
-  gfx.set(19/255, 19/255, 19/255, 1); gfx.rect(0, 0, width, height, 1)
-  gfx.set(197/255, 160/255, 89/255, 1); gfx.rect(0, 0, 4, height, 1)
-  gfx.set(245/255, 245/255, 245/255, 1); gfx.setfont(1, "Arial", 20, "b")
+  local scale, canvasW, canvasH = initHiDPIWaitWindow(width, height)
+  gfx.set(19/255, 19/255, 19/255, 1); gfx.rect(0, 0, canvasW, canvasH, 1)
+  gfx.set(197/255, 160/255, 89/255, 1); gfx.rect(0, 0, 4 * scale, canvasH, 1)
+  gfx.set(245/255, 245/255, 245/255, 1); gfx.setfont(1, "Arial", math.floor(20 * scale + 0.5), "b")
   local title = "Exporting project..."
-  gfx.x, gfx.y = (width - gfx.measurestr(title)) / 2, 38; gfx.drawstr(title)
-  gfx.set(165/255, 165/255, 165/255, 1); gfx.setfont(2, "Arial", 14)
+  gfx.x, gfx.y = (canvasW - gfx.measurestr(title)) / 2, 38 * scale; gfx.drawstr(title)
+  gfx.set(165/255, 165/255, 165/255, 1); gfx.setfont(2, "Arial", math.floor(14 * scale + 0.5))
   local detail = "Please wait while the DAWproject file is being created."
-  gfx.x, gfx.y = (width - gfx.measurestr(detail)) / 2, 79; gfx.drawstr(detail)
+  gfx.x, gfx.y = (canvasW - gfx.measurestr(detail)) / 2, 79 * scale; gfx.drawstr(detail)
   gfx.update()
   reaper.defer(function() startExport(outputPath, true) end)
 end
 local function showImportWait(archivePath)
   local width, height = 480, 142
-  gfx.init("DAWproject for REAPER", width, height, 0)
-  gfx.set(19/255, 19/255, 19/255, 1); gfx.rect(0, 0, width, height, 1)
-  gfx.set(197/255, 160/255, 89/255, 1); gfx.rect(0, 0, 4, height, 1)
-  gfx.set(245/255, 245/255, 245/255, 1); gfx.setfont(1, "Arial", 20, "b")
+  local scale, canvasW, canvasH = initHiDPIWaitWindow(width, height)
+  gfx.set(19/255, 19/255, 19/255, 1); gfx.rect(0, 0, canvasW, canvasH, 1)
+  gfx.set(197/255, 160/255, 89/255, 1); gfx.rect(0, 0, 4 * scale, canvasH, 1)
+  gfx.set(245/255, 245/255, 245/255, 1); gfx.setfont(1, "Arial", math.floor(20 * scale + 0.5), "b")
   local title = "Importing project..."
-  gfx.x, gfx.y = (width - gfx.measurestr(title)) / 2, 38; gfx.drawstr(title)
-  gfx.set(165/255, 165/255, 165/255, 1); gfx.setfont(2, "Arial", 14)
+  gfx.x, gfx.y = (canvasW - gfx.measurestr(title)) / 2, 38 * scale; gfx.drawstr(title)
+  gfx.set(165/255, 165/255, 165/255, 1); gfx.setfont(2, "Arial", math.floor(14 * scale + 0.5))
   local detail = "Please wait while the DAWproject file is being imported."
-  gfx.x, gfx.y = (width - gfx.measurestr(detail)) / 2, 79; gfx.drawstr(detail)
+  gfx.x, gfx.y = (canvasW - gfx.measurestr(detail)) / 2, 79 * scale; gfx.drawstr(detail)
   gfx.update()
   reaper.defer(function() startImport(archivePath, true) end)
 end
@@ -2461,7 +2496,14 @@ if logoFile then
   end
   os.remove(logoTempPath)
 end
+gfx.ext_retina = 1
 gfx.init("DAWproject for REAPER", windowWidth, windowHeight, 0)
+local requestedWindowScale = displayScaleFactor()
+local reportedWindowScale = math.min(gfx.w / windowWidth, gfx.h / windowHeight)
+if requestedWindowScale > reportedWindowScale + 0.01 then
+  gfx.init("", math.floor(windowWidth * requestedWindowScale + 0.5), math.floor(windowHeight * requestedWindowScale + 0.5))
+end
+lastWindowW, lastWindowH = gfx.w, gfx.h
 gfx.setfont(1, "Arial", 16)
 
 local function setColor(r, g, b, a) gfx.set(r / 255, g / 255, b / 255, a or 1) end
@@ -2557,7 +2599,7 @@ local function drawAboutDialog(w, h)
   local emailX = x + (panelW - emailW) / 2
   gfx.x, gfx.y = uiX(emailX), uiY(y + 123); gfx.drawstr(email)
   setColor(165, 165, 165); uiFont(3, "Arial", 15)
-  local version = "Version 1.0"
+  local version = "Version 1.1"
   gfx.x, gfx.y = uiX(x + (panelW - gfx.measurestr(version) / uiScale) / 2), uiY(y + 183); gfx.drawstr(version)
   setColor(197, 160, 89); uiFont(3, "Arial", 15, "u")
   local youtube, donation = "YouTube", "Donation"
