@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<index version="1" name="Reach the Knob" commit="8db1e29364362a7314281d01672b714f3ad906b6">
+<index version="1" name="Reach the Knob" commit="38adf0e3abfbed0b5c80644b821dea8d3cfb0527">
   <category name="Items">
     <reapack name="RtK_Bounce-items-to-new-track.lua" type="script" desc="Bounce items to new track">
       <metadata>
@@ -23,6 +23,10 @@
         <changelog><![CDATA[+ Initial release]]></changelog>
         <source main="main">https://github.com/AlexGurev/RtK-reascripts/raw/8db1e29364362a7314281d01672b714f3ad906b6/Items/RtK_Bounce-items-to-new-track.lua</source>
       </version>
+      <version name="1.1" author="Reach the Knob" time="2026-10-11T20:49:07Z">
+        <changelog><![CDATA[+ Added automatic interface scaling based on DPI settings]]></changelog>
+        <source main="main">https://github.com/AlexGurev/RtK-reascripts/raw/38adf0e3abfbed0b5c80644b821dea8d3cfb0527/Items/RtK_Bounce-items-to-new-track.lua</source>
+      </version>
     </reapack>
     <reapack name="RtK_DAWproject.lua" type="script" desc="DAWproject for REAPER">
       <metadata>
@@ -45,6 +49,11 @@
       <version name="1.0" author="Reach the Knob" time="2026-10-10T20:06:40Z">
         <changelog><![CDATA[+ Initial release]]></changelog>
         <source main="main">https://github.com/AlexGurev/RtK-reascripts/raw/8db1e29364362a7314281d01672b714f3ad906b6/Items/RtK_DAWproject.lua</source>
+      </version>
+      <version name="1.1" author="Reach the Knob" time="2026-10-11T20:49:07Z">
+        <changelog><![CDATA[+ Added automatic interface scaling based on DPI settings
++ Improved automation export for Cubase]]></changelog>
+        <source main="main">https://github.com/AlexGurev/RtK-reascripts/raw/38adf0e3abfbed0b5c80644b821dea8d3cfb0527/Items/RtK_DAWproject.lua</source>
       </version>
     </reapack>
   </category>
